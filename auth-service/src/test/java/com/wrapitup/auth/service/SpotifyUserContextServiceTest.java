@@ -3,12 +3,12 @@ package com.wrapitup.auth.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 
@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @DisplayName("SpotifyUserContextService Tests")
+@ExtendWith(MockitoExtension.class)
 class SpotifyUserContextServiceTest {
 
     private SpotifyUserContextService service;
@@ -31,27 +32,7 @@ class SpotifyUserContextServiceTest {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
         service = new SpotifyUserContextService(webClientBuilder);
-    }
-
-    @Test
-    @DisplayName("Should extract Spotify account ID from authorized client")
-    void testExtractSpotifyAccountIdSuccess() {
-        // Arrange
-        String expectedUserId = "spotify_user_123";
-        SpotifyUserProfile profile = new SpotifyUserProfile();
-        profile.setId(expectedUserId);
-        profile.setDisplayName("Test User");
-
-        when(authorizedClient.getAccessToken()).thenReturn(accessToken);
-        when(accessToken.getTokenValue()).thenReturn("token_value");
-        // Note: This test requires mocking WebClient which is complex
-        // For full testing, use integration tests with Testcontainers
-
-        // For unit test demonstration:
-        assertNotNull(profile.getId());
-        assertEquals(expectedUserId, profile.getId());
     }
 
     @Test
@@ -60,6 +41,18 @@ class SpotifyUserContextServiceTest {
         // Assert
         assertThrows(IllegalArgumentException.class, () -> {
             service.extractSpotifyAccountId(null);
+        });
+    }
+
+    @Test
+    @DisplayName("Should throw exception when access token is null")
+    void testExtractAccountIdThrowsWhenTokenIsNull() {
+        // Arrange
+        when(authorizedClient.getAccessToken()).thenReturn(null);
+
+        // Assert
+        assertThrows(IllegalStateException.class, () -> {
+            service.extractSpotifyAccountId(authorizedClient);
         });
     }
 
@@ -121,6 +114,19 @@ class SpotifyUserContextServiceTest {
     void testGetTokenExpiresInWhenTokenIsNull() {
         // Act
         long expiresIn = service.getTokenExpiresIn(null);
+
+        // Assert
+        assertEquals(0L, expiresIn);
+    }
+
+    @Test
+    @DisplayName("Should return 0 when token has no expiration")
+    void testGetTokenExpiresInWhenNoExpirationData() {
+        // Arrange
+        when(accessToken.getExpiresAt()).thenReturn(null);
+
+        // Act
+        long expiresIn = service.getTokenExpiresIn(accessToken);
 
         // Assert
         assertEquals(0L, expiresIn);
