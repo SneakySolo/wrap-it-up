@@ -23,28 +23,37 @@ public class SecurityConfig {
      * Configure security filter chain for OAuth2 login and CORS.
      *
      * Flow:
-     * 1. User accesses /auth/spotify → redirected to Spotify login
-     * 2. Spotify redirects back to /auth/spotify/callback with authorization code
-     * 3. Spring Security exchanges code for access token
-     * 4. User is authenticated with OAuth2 token
+     * 1. User visits protected endpoint (e.g., /auth/me)
+     * 2. Spring Security redirects to Spotify authorization URL
+     * 3. User logs in and authorizes
+     * 4. Spotify redirects back to /auth/spotify/callback?code=...&state=...
+     * 5. Spring Security exchanges code for access token
+     * 6. User is authenticated
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable()) // Disable CSRF for simplicity in V1
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authz -> authz
-                        // Allow health checks without authentication
+                        // Allow actuator endpoints without authentication
                         .requestMatchers("/actuator/**", "/health").permitAll()
-                        // All OAuth endpoints require authentication (except implicit redirect)
-                        .requestMatchers("/auth/spotify").permitAll() // Login endpoint is public
+                        // All other requests require authentication
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
-                        // Configure OAuth2 login
-                        .loginPage("/auth/spotify")
-                        .defaultSuccessUrl("/auth/spotify/callback", true)
-                        .failureUrl("/auth/error")
+                        // Explicitly set the authorization endpoint
+                        .authorizationEndpoint(authEndpoint ->
+                                authEndpoint
+                                        .baseUri("/oauth2/authorize")
+                        )
+                        // Explicitly set the redirect endpoint (must match application.yml redirect-uri)
+                        .redirectionEndpoint(redirectEndpoint ->
+                                redirectEndpoint
+                                        .baseUri("/auth/spotify/callback")
+                        )
+                        // After successful authentication, redirect to /auth/me
+                        .defaultSuccessUrl("/auth/me", true)
                 )
                 .logout(logout -> logout
                         .logoutUrl("/auth/logout")
@@ -56,7 +65,7 @@ public class SecurityConfig {
     }
 
     /**
-     * Configure CORS to allow requests from frontend (gateway).
+     * Configure CORS.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -65,7 +74,9 @@ public class SecurityConfig {
                 "http://localhost:8080",
                 "http://127.0.0.1:8080",
                 "http://localhost:3000",
-                "http://127.0.0.1:3000"
+                "http://127.0.0.1:3000",
+                "http://localhost:8081",
+                "http://127.0.0.1:8081"
         ));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));
