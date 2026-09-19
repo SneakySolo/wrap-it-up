@@ -112,7 +112,7 @@ class SpotifyDataNormalizerTest {
         assertEquals("Taylor Swift", result.getArtistName());
         assertEquals("album123", result.getAlbumId());
         assertEquals("Midnights", result.getAlbumName());
-        assertEquals("2022-10-21", result.getAlbumReleaseDate());
+        assertEquals(java.time.LocalDate.parse("2022-10-21"), result.getAlbumReleaseDate());
         assertEquals("https://example.com/album.jpg", result.getImageUrl());
     }
 
