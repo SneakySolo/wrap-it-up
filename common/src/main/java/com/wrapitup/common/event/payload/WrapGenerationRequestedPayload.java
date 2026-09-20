@@ -1,5 +1,6 @@
 package com.wrapitup.common.event.payload;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,7 +11,9 @@ import lombok.Data;
  */
 @Data
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @Builder
 public class WrapGenerationRequestedPayload {
-    // Empty payload
+    // Intentionally empty - all context passed via event envelope
+    // (generationId, spotifyAccountId, etc.)
 }

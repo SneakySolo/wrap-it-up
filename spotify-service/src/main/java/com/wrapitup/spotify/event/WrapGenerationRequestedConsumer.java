@@ -1,98 +1,101 @@
 package com.wrapitup.spotify.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wrapitup.common.event.EventEnvelope;
 import com.wrapitup.common.event.payload.SpotifySnapshotPayload;
-import com.wrapitup.common.event.payload.WrapGenerationRequestedPayload;
 import com.wrapitup.spotify.service.SpotifyListeningSnapshotService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * Kafka consumer for wrap.generation.requested events.
- * Triggered when wrap generation starts.
- * Responsibilities:
- * 1. Receive the generation request
- * 2. Fetch Spotify data for the user
- * 3. Publish spotify.snapshot.created event
+ * Consumer for wrap.generation.requested events.
+ *
+ * Listens on the wrap.generation.requested topic and:
+ * 1. Fetches Spotify data for the user (requires access token from auth context)
+ * 2. Normalizes it
+ * 3. Publishes spotify.snapshot.created event
+ *
+ * NOTE: Phase 4 is simplified - we don't have auth context yet.
+ * In Phase 5+, will need to retrieve the access token for spotifyAccountId.
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class WrapGenerationRequestedConsumer {
 
     private final SpotifyListeningSnapshotService snapshotService;
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final KafkaTemplate<String, EventEnvelope> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
+    public WrapGenerationRequestedConsumer(
+            SpotifyListeningSnapshotService snapshotService,
+            KafkaTemplate<String, EventEnvelope> kafkaTemplate,
+            ObjectMapper objectMapper
+    ) {
+        this.snapshotService = snapshotService;
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
+    }
+
     /**
-     * Handle wrap.generation.requested events.
-     * Fetches Spotify data and publishes snapshot event.
+     * Listen for wrap.generation.requested events.
+     *
+     * @param envelope the event envelope containing generation and account info
      */
     @KafkaListener(
             topics = "wrap.generation.requested",
             groupId = "spotify-service-group",
             containerFactory = "kafkaListenerContainerFactory"
     )
-    public void handleWrapGenerationRequested(String eventMessage) {
-        log.info("Received wrap.generation.requested event");
-
+    public void consumeGenerationRequested(EventEnvelope envelope) {
         try {
-            // Parse the event as a generic map first
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> eventMap = objectMapper.readValue(eventMessage, java.util.Map.class);
+            String generationId = envelope.getGenerationId();
+            String spotifyAccountId = envelope.getSpotifyAccountId();
 
-            String generationId = (String) eventMap.get("generationId");
-            String spotifyAccountId = (String) eventMap.get("spotifyAccountId");
-
-            log.debug("Processing generation request: generationId={}, accountId={}",
+            log.info("Received wrap.generation.requested event: generation={} account={}",
                     generationId, spotifyAccountId);
 
-            // TODO: Fetch access token from Auth Service
-            // For now, this will be integrated after Auth Service exposes token management
-            // String accessToken = getAccessTokenForUser(spotifyAccountId);
+            // TODO: Phase 5 - Retrieve access token for spotifyAccountId from auth service/cache
+            // For now, this will fail. Will need to integrate with auth service.
+            String accessToken = "PLACEHOLDER_ACCESS_TOKEN"; // Will be retrieved from auth context
 
-            // Fetch Spotify snapshot
-            SpotifySnapshotPayload snapshot = snapshotService.fetchListeningSnapshot(
-                    "dummy-token" // Will be replaced with actual token from Auth Service
-            );
+            // Fetch snapshot from Spotify using the CORRECT method name
+            SpotifySnapshotPayload snapshot = snapshotService.fetchListeningSnapshot(accessToken);
 
-            // Build and publish spotify.snapshot.created event
-            publishSpotifySnapshotEvent(generationId, spotifyAccountId, snapshot);
-
-            log.info("Successfully processed wrap generation request: generationId={}", generationId);
+            // Publish spotify.snapshot.created event
+            publishSnapshot(envelope, snapshot);
 
         } catch (Exception e) {
-            log.error("Failed to process wrap.generation.requested event", e);
-            // TODO: Publish wrap.generation.failed event
+            log.error("Error processing wrap.generation.requested event", e);
+            // TODO: Publish wrap.generation.failed event (Phase 5)
+            // publishFailedEvent(envelope, e);
         }
     }
 
     /**
-     * Publish spotify.snapshot.created event to Kafka.
+     * Publish the spotify.snapshot.created event.
      */
-    private void publishSpotifySnapshotEvent(String generationId, String spotifyAccountId,
-                                             SpotifySnapshotPayload snapshot) {
+    private void publishSnapshot(EventEnvelope requestEnvelope, SpotifySnapshotPayload snapshot) {
         try {
-            // Build event as a map to avoid generic type issues
-            java.util.Map<String, Object> event = new java.util.LinkedHashMap<>();
-            event.put("eventId", java.util.UUID.randomUUID().toString());
-            event.put("eventType", "spotify.snapshot.created");
-            event.put("eventVersion", 1);
-            event.put("occurredAt", java.time.Instant.now().toString());
-            event.put("generationId", generationId);
-            event.put("spotifyAccountId", spotifyAccountId);
-            event.put("payload", snapshot);
+            EventEnvelope snapshotEvent = EventEnvelope.customBuilder()
+                    .eventType("spotify.snapshot.created")
+                    .generationId(requestEnvelope.getGenerationId())
+                    .spotifyAccountId(requestEnvelope.getSpotifyAccountId())
+                    .payload(objectMapper.valueToTree(snapshot))
+                    .build();
 
-            String message = objectMapper.writeValueAsString(event);
-            kafkaTemplate.send("spotify.snapshot.created", generationId, message);
+            // Send to kafka using generationId as partition key
+            kafkaTemplate.send(
+                    "spotify.snapshot.created",
+                    requestEnvelope.getGenerationId(),
+                    snapshotEvent
+            );
 
-            log.info("Published spotify.snapshot.created event: generationId={}", generationId);
-
+            log.info("Published spotify.snapshot.created event for generation={}",
+                    requestEnvelope.getGenerationId());
         } catch (Exception e) {
-            log.error("Failed to publish spotify.snapshot.created event", e);
+            log.error("Error publishing spotify.snapshot.created event", e);
             throw new RuntimeException("Failed to publish snapshot event", e);
         }
     }
