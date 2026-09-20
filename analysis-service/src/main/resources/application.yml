@@ -1,6 +1,7 @@
 spring:
   application:
     name: analysis-service
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -14,23 +15,16 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      max-poll-records: 10
       properties:
         spring.json.trusted.packages: com.wrapitup.*
 
 server:
-  port: 8084
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,prometheus
-  endpoint:
-    health:
-      show-details: always
+  port: 8083
+  servlet:
+    context-path: /api
 
 logging:
   level:
     root: INFO
     com.wrapitup: DEBUG
-    org.springframework.kafka: INFO
