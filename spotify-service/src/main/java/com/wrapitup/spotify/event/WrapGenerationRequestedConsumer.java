@@ -5,9 +5,13 @@ import com.wrapitup.common.event.EventEnvelope;
 import com.wrapitup.common.event.payload.SpotifySnapshotPayload;
 import com.wrapitup.spotify.service.SpotifyListeningSnapshotService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+import com.wrapitup.common.event.payload.WrapGenerationFailedPayload;
+import reactor.core.publisher.Mono;
 
 /**
  * Consumer for wrap.generation.requested events.
@@ -23,6 +27,9 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 public class WrapGenerationRequestedConsumer {
+
+    @Autowired
+    private WebClient webClient;
 
     private final SpotifyListeningSnapshotService snapshotService;
     private final KafkaTemplate<String, EventEnvelope> kafkaTemplate;
@@ -56,20 +63,76 @@ public class WrapGenerationRequestedConsumer {
             log.info("Received wrap.generation.requested event: generation={} account={}",
                     generationId, spotifyAccountId);
 
-            // TODO: Phase 5 - Retrieve access token for spotifyAccountId from auth service/cache
-            // For now, this will fail. Will need to integrate with auth service.
-            String accessToken = "PLACEHOLDER_ACCESS_TOKEN"; // Will be retrieved from auth context
+            // REAL: Fetch access token from auth-service
+            String accessToken = fetchAccessToken(spotifyAccountId);
+            if (accessToken == null) {
+                log.error("Failed to fetch access token for account: {}", spotifyAccountId);
+                publishFailedEvent(envelope, "MISSING_TOKEN", "No token available for account");
+                return;
+            }
 
-            // Fetch snapshot from Spotify using the CORRECT method name
+            // Fetch snapshot from Spotify
             SpotifySnapshotPayload snapshot = snapshotService.fetchListeningSnapshot(accessToken);
 
             // Publish spotify.snapshot.created event
             publishSnapshot(envelope, snapshot);
 
         } catch (Exception e) {
-            log.error("Error processing wrap.generation.requested event", e);
-            // TODO: Publish wrap.generation.failed event (Phase 5)
-            // publishFailedEvent(envelope, e);
+            log.error("Error processing wrap.generation.requested event: {}", e.getMessage(), e);
+            publishFailedEvent(envelope, "SPOTIFY_FETCH_FAILED", e.getMessage());
+        }
+    }
+
+    private String fetchAccessToken(String spotifyAccountId) {
+        try {
+            String authServiceUrl = "http://localhost:8081/internal/tokens/" + spotifyAccountId;
+
+            return webClient.get()
+                    .uri(authServiceUrl)
+                    .retrieve()
+                    .bodyToMono(com.fasterxml.jackson.databind.JsonNode.class)
+                    .map(response -> response.get("accessToken").asText())
+                    .doOnError(error -> {
+                        log.warn("Auth service error fetching token for account {}: {}",
+                                spotifyAccountId, error.getMessage());
+                    })
+                    .onErrorReturn(null)
+                    .block();
+
+        } catch (Exception e) {
+            log.error("Failed to fetch token from auth-service for account: {}",
+                    spotifyAccountId, e);
+            return null;
+        }
+    }
+
+    // Add this method to publish failed events (implement the TODO from before)
+    private void publishFailedEvent(EventEnvelope requestEnvelope, String errorCode, String message) {
+        try {
+            WrapGenerationFailedPayload failPayload = WrapGenerationFailedPayload.builder()
+                    .stage("SPOTIFY_FETCH")
+                    .errorCode(errorCode)
+                    .retryable(true)
+                    .message(message)
+                    .build();
+
+            EventEnvelope failedEvent = EventEnvelope.customBuilder()
+                    .eventType("wrap.generation.failed")
+                    .generationId(requestEnvelope.getGenerationId())
+                    .spotifyAccountId(requestEnvelope.getSpotifyAccountId())
+                    .payload(objectMapper.valueToTree(failPayload))
+                    .build();
+
+            kafkaTemplate.send(
+                    "wrap.generation.failed",
+                    requestEnvelope.getGenerationId(),
+                    failedEvent
+            );
+
+            log.info("Published wrap.generation.failed event for generation={}",
+                    requestEnvelope.getGenerationId());
+        } catch (Exception e) {
+            log.error("Error publishing wrap.generation.failed event", e);
         }
     }
 

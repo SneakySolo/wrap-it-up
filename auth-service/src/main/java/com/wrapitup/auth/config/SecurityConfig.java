@@ -1,5 +1,7 @@
 package com.wrapitup.auth.config;
 
+import com.wrapitup.auth.service.TokenInfo;
+import com.wrapitup.auth.service.TokenStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -10,6 +12,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Arrays;
 
@@ -18,6 +24,12 @@ import java.util.Arrays;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+
+    @Autowired
+    private OAuth2AuthorizedClientRepository authorizedClientRepository;
+
+    @Autowired
+    private TokenStore tokenStore;
 
     /**
      * Configure security filter chain for OAuth2 login and CORS.
@@ -42,18 +54,40 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
-                        // Explicitly set the authorization endpoint
-                        .authorizationEndpoint(authEndpoint ->
-                                authEndpoint
-                                        .baseUri("/oauth2/authorize")
-                        )
-                        // Explicitly set the redirect endpoint (must match application.yml redirect-uri)
-                        .redirectionEndpoint(redirectEndpoint ->
-                                redirectEndpoint
-                                        .baseUri("/auth/spotify/callback")
-                        )
-                        // After successful authentication, redirect to /auth/me
-                        .defaultSuccessUrl("/auth/me", true)
+                        .successHandler((request, response, authentication) -> {
+                            try {
+                                OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
+                                String clientName = oauthToken.getAuthorizedClientRegistrationId();
+
+                                // Get the authorized client
+                                OAuth2AuthorizedClient client = authorizedClientRepository
+                                        .loadAuthorizedClient(clientName, oauthToken, request);
+
+                                if (client != null && client.getAccessToken() != null) {
+                                    // Extract Spotify account ID from user profile
+                                    String spotifyAccountId = oauthToken.getPrincipal()
+                                            .getAttribute("id"); // Spotify's user ID field
+
+                                    if (spotifyAccountId != null) {
+                                        TokenInfo tokenInfo = TokenInfo.builder()
+                                                .accessToken(client.getAccessToken().getTokenValue())
+                                                .refreshToken(client.getRefreshToken() != null
+                                                        ? client.getRefreshToken().getTokenValue()
+                                                        : null)
+                                                .expiresAt(client.getAccessToken().getExpiresAt())
+                                                .build();
+
+                                        tokenStore.saveToken(spotifyAccountId, tokenInfo);
+                                        log.info("✓ Captured and stored token for account: {}", spotifyAccountId);
+                                    }
+                                }
+                            } catch (Exception e) {
+                                log.error("Failed to capture token after OAuth", e);
+                            }
+
+                            // Redirect to home or dashboard
+                            response.sendRedirect("/");
+                        })
                 )
                 .logout(logout -> logout
                         .logoutUrl("/auth/logout")
