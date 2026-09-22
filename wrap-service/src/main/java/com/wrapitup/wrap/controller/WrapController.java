@@ -115,7 +115,7 @@ public class WrapController {
      */
     @GetMapping("/{generationId}/status")
     public ResponseEntity<WrapStatusResponse> getGenerationStatus(
-            @PathVariable String generationId
+            @PathVariable("generationId") String generationId
     ) {
         try {
             GenerationState state = stateService.getState(generationId);
@@ -125,8 +125,10 @@ public class WrapController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
 
+            // Safely access error message
+            String errorMessage = state.getErrorMessage() != null ? state.getErrorMessage() : "";
             String statusMessage = state.getStatus() == GenerationStateService.GenerationStatus.FAILED
-                    ? "Error: " + state.getErrorMessage()
+                    ? "Error: " + errorMessage
                     : buildStatusMessage(state);
 
             WrapStatusResponse response = WrapStatusResponse.builder()
@@ -166,7 +168,7 @@ public class WrapController {
      */
     @GetMapping("/{generationId}")
     public ResponseEntity<?> getWrap(
-            @PathVariable String generationId
+            @PathVariable("generationId") String generationId
     ) {
         try {
             GenerationState state = stateService.getState(generationId);
@@ -227,6 +229,10 @@ public class WrapController {
      * @return Status message
      */
     private String buildStatusMessage(GenerationState state) {
+        if (state == null || state.getStatus() == null) {
+            return "Status unknown";
+        }
+
         switch (state.getStatus()) {
             case PENDING:
                 if (state.getPercentComplete() < 33) {
@@ -239,7 +245,8 @@ public class WrapController {
             case COMPLETED:
                 return "Your wrap is ready! Retrieve it at GET /wraps/" + state.getGenerationId();
             case FAILED:
-                return "Wrap generation failed: " + state.getErrorMessage();
+                String errorMsg = state.getErrorMessage() != null ? state.getErrorMessage() : "Unknown error";
+                return "Wrap generation failed: " + errorMsg;
             default:
                 return "Status unknown";
         }
