@@ -29,7 +29,7 @@
 		<maven.compiler.target>21</maven.compiler.target>
 		<maven.compiler.release>21</maven.compiler.release>
 		<spring-boot.version>3.2.5</spring-boot.version>
-		<spring-cloud.version>2023.0.4</spring-cloud.version>
+		<spring-cloud.version>2023.0.1</spring-cloud.version>
 		<lombok.version>1.18.48</lombok.version>
 	</properties>
 
