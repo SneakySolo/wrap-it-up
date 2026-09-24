@@ -35,12 +35,14 @@ public class SecurityConfig {
      * Configure security filter chain for OAuth2 login and CORS.
      *
      * Flow:
-     * 1. User visits protected endpoint (e.g., /auth/me)
-     * 2. Spring Security redirects to Spotify authorization URL
+     * 1. Unauthenticated user accesses /auth/me
+     * 2. Spring Security redirects to Spotify
      * 3. User logs in and authorizes
      * 4. Spotify redirects back to /auth/spotify/callback?code=...&state=...
-     * 5. Spring Security exchanges code for access token
-     * 6. User is authenticated
+     * 5. Spring Security exchanges code for token
+     * 6. Success handler is called
+     * 7. User is redirected to /auth/me
+     * 8. AuthController returns user info as JSON
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -48,12 +50,14 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authz -> authz
-                        // Allow actuator endpoints without authentication
-                        .requestMatchers("/actuator/**", "/health").permitAll()
-                        // All other requests require authentication
+                        // Allow health endpoints without authentication
+                        .requestMatchers("/actuator/**", "/health", "/auth/internal/**").permitAll()
+                        // All other /auth requests require authentication
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
+                        .redirectionEndpoint(redirection -> redirection
+                                .baseUri("/auth/spotify/callback"))
                         .successHandler((request, response, authentication) -> {
                             try {
                                 OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
@@ -66,7 +70,7 @@ public class SecurityConfig {
                                 if (client != null && client.getAccessToken() != null) {
                                     // Extract Spotify account ID from user profile
                                     String spotifyAccountId = oauthToken.getPrincipal()
-                                            .getAttribute("id"); // Spotify's user ID field
+                                            .getAttribute("id");
 
                                     if (spotifyAccountId != null) {
                                         TokenInfo tokenInfo = TokenInfo.builder()
@@ -78,15 +82,14 @@ public class SecurityConfig {
                                                 .build();
 
                                         tokenStore.saveToken(spotifyAccountId, tokenInfo);
-                                        log.info("✓ Captured and stored token for account: {}", spotifyAccountId);
+                                        log.info("✓ OAuth successful - Captured and stored token for account: {}", spotifyAccountId);
                                     }
                                 }
                             } catch (Exception e) {
                                 log.error("Failed to capture token after OAuth", e);
                             }
 
-                            // Redirect to home or dashboard
-                            response.sendRedirect("/");
+                            response.sendRedirect("/auth/me");
                         })
                 )
                 .logout(logout -> logout
@@ -107,10 +110,9 @@ public class SecurityConfig {
         config.setAllowedOrigins(Arrays.asList(
                 "http://localhost:8080",
                 "http://127.0.0.1:8080",
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
                 "http://localhost:8081",
-                "http://127.0.0.1:8081"
+                "http://localhost:3000",
+                "http://127.0.0.1:3000"
         ));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));

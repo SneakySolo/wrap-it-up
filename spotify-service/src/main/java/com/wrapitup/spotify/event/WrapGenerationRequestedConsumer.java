@@ -6,6 +6,7 @@ import com.wrapitup.common.event.payload.SpotifySnapshotPayload;
 import com.wrapitup.spotify.service.SpotifyListeningSnapshotService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,9 @@ public class WrapGenerationRequestedConsumer {
     private final SpotifyListeningSnapshotService snapshotService;
     private final KafkaTemplate<String, EventEnvelope> kafkaTemplate;
     private final ObjectMapper objectMapper;
+
+    @Value("${INTERNAL_SERVICE_TOKEN:local-development-only}")
+    private String internalServiceToken;
 
     public WrapGenerationRequestedConsumer(
             SpotifyListeningSnapshotService snapshotService,
@@ -85,10 +89,11 @@ public class WrapGenerationRequestedConsumer {
 
     private String fetchAccessToken(String spotifyAccountId) {
         try {
-            String authServiceUrl = "http://localhost:8081/internal/tokens/" + spotifyAccountId;
+            String authServiceUrl = "http://localhost:8081/auth/internal/tokens/" + spotifyAccountId;
 
             return webClient.get()
                     .uri(authServiceUrl)
+                    .header("X-Internal-Service-Token", internalServiceToken)
                     .retrieve()
                     .bodyToMono(com.fasterxml.jackson.databind.JsonNode.class)
                     .map(response -> response.get("accessToken").asText())

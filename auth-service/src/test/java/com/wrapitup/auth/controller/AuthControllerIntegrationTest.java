@@ -11,7 +11,6 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.hamcrest.Matchers.containsString;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -27,14 +26,12 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Should return login message for GET /auth/spotify")
+    @DisplayName("Should start OAuth login for GET /auth/spotify")
     void testLoginEndpoint() throws Exception {
         mockMvc.perform(get("/auth/spotify"))
                 .andDo(print())
-                .andExpect(MockMvcResultMatchers.status().isOk())
-                .andExpect(MockMvcResultMatchers.content().string(
-                        containsString("Redirecting to Spotify")
-                ));
+                .andExpect(MockMvcResultMatchers.status().is3xxRedirection())
+                .andExpect(MockMvcResultMatchers.redirectedUrl("http://localhost/oauth2/authorization/spotify"));
     }
 
     @Test

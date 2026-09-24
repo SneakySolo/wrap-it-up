@@ -1,3 +1,7 @@
+server:
+  port: 8081
+  forward-headers-strategy: framework
+
 spring:
   application:
     name: auth-service
@@ -23,7 +27,9 @@ spring:
           spotify:
             client-id: ${SPOTIFY_CLIENT_ID}
             client-secret: ${SPOTIFY_CLIENT_SECRET}
-            redirect-uri: http://127.0.0.1:8081/auth/spotify/callback
+            # Spotify must return through the gateway, where Spring Security handles
+            # the authorization-code callback.
+            redirect-uri: http://127.0.0.1:8080/auth/spotify/callback
             authorization-grant-type: authorization_code
             scope:
               - user-read-private
@@ -37,8 +43,8 @@ spring:
             user-info-uri: https://api.spotify.com/v1/me
             user-name-attribute: id
 
-server:
-  port: 8081
+auth:
+  internal-service-token: ${INTERNAL_SERVICE_TOKEN:local-development-only}
 
 management:
   endpoints:
@@ -53,3 +59,4 @@ logging:
   level:
     root: INFO
     com.wrapitup: DEBUG
+    org.springframework.security: DEBUG
