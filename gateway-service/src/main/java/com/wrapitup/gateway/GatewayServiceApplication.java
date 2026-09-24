@@ -13,19 +13,20 @@ public class GatewayServiceApplication {
         SpringApplication.run(GatewayServiceApplication.class, args);
     }
 
-    /**
-     * Configure routes to backend services.
-     * This is a basic setup; expand as more endpoints are added.
-     */
+    /** Configure routes to backend services. */
     @Bean
     public RouteLocator routeLocator(RouteLocatorBuilder builder) {
         return builder.routes()
                 .route("auth-service", r -> r
-                        .path("/auth/**")
+                        .path("/auth/**", "/oauth2/**", "/login/**")
+                        .filters(f -> f
+                                // OAuth sessions and redirect URIs belong to the public gateway host.
+                                .preserveHostHeader())
                         .uri("http://localhost:8081"))
+
                 .route("wrap-service", r -> r
                         .path("/wraps/**")
-                        .uri("http://localhost:8083"))
+                        .uri("http://localhost:8084"))
                 .build();
     }
 }

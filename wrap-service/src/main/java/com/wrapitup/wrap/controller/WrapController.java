@@ -8,8 +8,12 @@ import com.wrapitup.wrap.service.GenerationStateService;
 import com.wrapitup.wrap.service.GenerationStateService.GenerationState;
 import com.wrapitup.wrap.service.WrapGenerationRequestedProducer;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestClient;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -38,15 +42,20 @@ public class WrapController {
     private final WrapGenerationRequestedProducer producer;
     private final GenerationStateService stateService;
     private final WrapCacheService cacheService;
+    private final RestClient authServiceClient;
 
     public WrapController(
             WrapGenerationRequestedProducer producer,
             GenerationStateService stateService,
-            WrapCacheService cacheService
+            WrapCacheService cacheService,
+            @Value("${auth-service.base-url:http://localhost:8081}") String authServiceBaseUrl
     ) {
         this.producer = producer;
         this.stateService = stateService;
         this.cacheService = cacheService;
+        this.authServiceClient = RestClient.builder()
+                .baseUrl(authServiceBaseUrl)
+                .build();
     }
 
     /**
@@ -66,10 +75,9 @@ public class WrapController {
      * @return generation ID for tracking
      */
     @PostMapping
-    public ResponseEntity<GenerateWrapResponse> generateWrap() {
+    public ResponseEntity<?> generateWrap(HttpServletRequest request) {
         try {
-            // TODO: Extract spotifyAccountId from authenticated user context
-            String spotifyAccountId = "placeholder-account-id";
+            String spotifyAccountId = resolveSpotifyAccountId(request);
 
             // Generate unique ID for this wrap generation
             String generationId = UUID.randomUUID().toString();
@@ -89,10 +97,55 @@ public class WrapController {
                             .build()
             );
 
+        } catch (UnauthenticatedUserException e) {
+            log.warn("Wrap generation requested without an authenticated Spotify session");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         } catch (Exception e) {
             log.error("Error initiating wrap generation", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    /**
+     * Resolve the authenticated Spotify account from the auth-service session.
+     * The gateway forwards the browser's JSESSIONID to this service, so the
+     * session cookie is forwarded for the lookup instead of trusting a client
+     * supplied account ID.
+     */
+    private String resolveSpotifyAccountId(HttpServletRequest request) {
+        String sessionCookie = request.getHeader(HttpHeaders.COOKIE);
+        if (sessionCookie == null || sessionCookie.isBlank()) {
+            throw new UnauthenticatedUserException();
+        }
+
+        try {
+            String accountId = authServiceClient.get()
+                    .uri("/auth/me")
+                    .header(HttpHeaders.COOKIE, sessionCookie)
+                    .exchange((clientRequest, response) -> {
+                        if (!response.getStatusCode().is2xxSuccessful()) {
+                            return null;
+                        }
+                        var user = response.bodyTo(com.fasterxml.jackson.databind.JsonNode.class);
+                        if (!user.path("is_authenticated").asBoolean(false)) {
+                            return null;
+                        }
+                        return user.path("spotify_account_id").asText(null);
+                    });
+
+            if (accountId == null || accountId.isBlank()) {
+                throw new UnauthenticatedUserException();
+            }
+            return accountId;
+        } catch (UnauthenticatedUserException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unable to resolve authenticated Spotify account", e);
+            throw new IllegalStateException("Auth service unavailable", e);
+        }
+    }
+
+    private static class UnauthenticatedUserException extends RuntimeException {
     }
 
     /**
