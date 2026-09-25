@@ -75,17 +75,43 @@ public class SpotifySnapshotListener {
             // Extract and deserialize payload from JsonNode
             SpotifySnapshotPayload payload = objectMapper.treeToValue(event.getPayload(), SpotifySnapshotPayload.class);
 
-            // Extract data
-            List<SpotifyArtist> shortTermArtists = payload.getTopArtists().getShortTerm();
-            List<SpotifyArtist> mediumTermArtists = payload.getTopArtists().getMediumTerm();
-            List<SpotifyArtist> longTermArtists = payload.getTopArtists().getLongTerm();
-            List<SpotifyTrack> topTracks = payload.getTopTracks().getLongTerm();
-            List<RecentlyPlayedItem> recentlyPlayed = payload.getRecentlyPlayed();
+            if (payload == null) {
+                throw new IllegalArgumentException("Snapshot payload is missing");
+            }
+
+            // Extract data. Spotify can legitimately return empty artist lists for
+            // accounts without enough listening history, so treat those lists as
+            // optional and keep the analysis pipeline null-safe.
+            List<SpotifyArtist> shortTermArtists = payload.getTopArtists() != null
+                    && payload.getTopArtists().getShortTerm() != null
+                    ? payload.getTopArtists().getShortTerm()
+                    : List.of();
+            List<SpotifyArtist> mediumTermArtists = payload.getTopArtists() != null
+                    && payload.getTopArtists().getMediumTerm() != null
+                    ? payload.getTopArtists().getMediumTerm()
+                    : List.of();
+            List<SpotifyArtist> longTermArtists = payload.getTopArtists() != null
+                    && payload.getTopArtists().getLongTerm() != null
+                    ? payload.getTopArtists().getLongTerm()
+                    : List.of();
+            List<SpotifyTrack> topTracks = payload.getTopTracks() != null
+                    && payload.getTopTracks().getLongTerm() != null
+                    ? payload.getTopTracks().getLongTerm()
+                    : List.of();
+            List<RecentlyPlayedItem> recentlyPlayed = payload.getRecentlyPlayed() != null
+                    ? payload.getRecentlyPlayed()
+                    : List.of();
+
+            // The top-tracks response includes the primary artist even when the
+            // separate top-artists endpoint is empty. Use it as a best-effort
+            // fallback so the completed wrap still has a useful top artist.
+            if (longTermArtists.isEmpty()) {
+                longTermArtists = deriveArtistsFromTracks(topTracks);
+            }
 
             // Validate critical data
-            if (longTermArtists == null || longTermArtists.isEmpty() ||
-                    topTracks == null || topTracks.isEmpty()) {
-                throw new IllegalArgumentException("Missing required data in snapshot");
+            if (topTracks.isEmpty()) {
+                throw new IllegalArgumentException("Snapshot contains no top tracks");
             }
 
             // ===== PERFORM ANALYSIS =====
@@ -208,6 +234,22 @@ public class SpotifySnapshotListener {
             counts.put(artistId, counts.getOrDefault(artistId, 0) + 1);
         }
         return counts;
+    }
+
+    private List<SpotifyArtist> deriveArtistsFromTracks(List<SpotifyTrack> topTracks) {
+        Map<String, SpotifyArtist> artistsById = new LinkedHashMap<>();
+        for (SpotifyTrack track : topTracks) {
+            if (track == null || track.getArtistId() == null || track.getArtistId().isBlank()) {
+                continue;
+            }
+
+            artistsById.putIfAbsent(track.getArtistId(), SpotifyArtist.builder()
+                    .id(track.getArtistId())
+                    .name(track.getArtistName())
+                    .genres(List.of())
+                    .build());
+        }
+        return new ArrayList<>(artistsById.values());
     }
 
     /**

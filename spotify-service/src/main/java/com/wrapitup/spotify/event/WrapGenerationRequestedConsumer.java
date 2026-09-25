@@ -96,12 +96,13 @@ public class WrapGenerationRequestedConsumer {
                     .header("X-Internal-Service-Token", internalServiceToken)
                     .retrieve()
                     .bodyToMono(com.fasterxml.jackson.databind.JsonNode.class)
-                    .map(response -> response.get("accessToken").asText())
+                    .map(response -> response.path("accessToken").asText(null))
+                    .filter(accessToken -> accessToken != null && !accessToken.isBlank())
                     .doOnError(error -> {
                         log.warn("Auth service error fetching token for account {}: {}",
                                 spotifyAccountId, error.getMessage());
                     })
-                    .onErrorReturn(null)
+                    .onErrorResume(error -> Mono.empty())
                     .block();
 
         } catch (Exception e) {

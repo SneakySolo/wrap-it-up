@@ -29,7 +29,7 @@ class WrapCacheServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
         service = new WrapCacheService(redisTemplate, DEFAULT_TTL_MINUTES);
     }
 
