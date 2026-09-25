@@ -7,6 +7,7 @@ import com.wrapitup.spotify.dto.SpotifyApiTrackResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -44,7 +45,7 @@ public class SpotifyApiClient {
                 .uri("/me/top/artists?time_range={timeRange}&limit=50", timeRange)
                 .header("Authorization", "Bearer " + accessToken)
                 .retrieve()
-                .bodyToMono(SpotifyApiPagedResponse.class)
+                .bodyToMono(new ParameterizedTypeReference<SpotifyApiPagedResponse<SpotifyApiArtistResponse>>() {})
                 .block();
 
         if (response == null || response.getItems() == null) {
@@ -71,7 +72,7 @@ public class SpotifyApiClient {
                 .uri("/me/top/tracks?time_range=long_term&limit=50")
                 .header("Authorization", "Bearer " + accessToken)
                 .retrieve()
-                .bodyToMono(SpotifyApiPagedResponse.class)
+                .bodyToMono(new ParameterizedTypeReference<SpotifyApiPagedResponse<SpotifyApiTrackResponse>>() {})
                 .block();
 
         if (response == null || response.getItems() == null) {
@@ -95,10 +96,10 @@ public class SpotifyApiClient {
 
         SpotifyApiPagedResponse<SpotifyApiPlayHistoryResponse> response = spotifyWebClient
                 .get()
-                .uri("/me/player/recently_played?limit=50")
+                .uri("/me/player/recently-played?limit=50")
                 .header("Authorization", "Bearer " + accessToken)
                 .retrieve()
-                .bodyToMono(SpotifyApiPagedResponse.class)
+                .bodyToMono(new ParameterizedTypeReference<SpotifyApiPagedResponse<SpotifyApiPlayHistoryResponse>>() {})
                 .block();
 
         if (response == null || response.getItems() == null) {

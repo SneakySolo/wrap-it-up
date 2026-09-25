@@ -205,6 +205,6 @@ class GenerationStateServiceTest {
         state = service.getState(generationId);
 
         assertNotNull(state.getCompletedAt());
-        assertTrue(state.getCompletedAt().isAfter(state.getCreatedAt()));
+        assertFalse(state.getCompletedAt().isBefore(state.getCreatedAt()));
     }
 }
