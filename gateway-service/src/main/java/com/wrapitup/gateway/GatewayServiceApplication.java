@@ -25,7 +25,8 @@ public class GatewayServiceApplication {
                         .uri("http://localhost:8081"))
 
                 .route("wrap-service", r -> r
-                        .path("/wraps/**")
+                        .path("/api/wraps/**")
+                        .filters(f -> f.rewritePath("/api/wraps/(?<segment>.*)", "/wraps/${segment}"))
                         .uri("http://localhost:8084"))
                 .build();
     }
