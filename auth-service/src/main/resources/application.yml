@@ -27,9 +27,10 @@ spring:
           spotify:
             client-id: ${SPOTIFY_CLIENT_ID}
             client-secret: ${SPOTIFY_CLIENT_SECRET}
-            # Spotify must return through the gateway, where Spring Security handles
-            # the authorization-code callback.
-            redirect-uri: http://127.0.0.1:8080/auth/spotify/callback
+            # This exact URI must also be registered in the Spotify developer
+            # dashboard. The UI uses the same canonical host so the OAuth state
+            # cookie is available when Spotify sends the callback.
+            redirect-uri: ${SPOTIFY_REDIRECT_URI:http://127.0.0.1:8080/auth/spotify/callback}
             authorization-grant-type: authorization_code
             scope:
               - user-read-private
