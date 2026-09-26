@@ -27,6 +27,9 @@ server:
 wrap-service:
   base-url: ${WRAP_SERVICE_BASE_URL:http://localhost:8084}
 
+auth-service:
+  base-url: ${AUTH_SERVICE_BASE_URL:http://localhost:8081}
+
 management:
   endpoints:
     web:
