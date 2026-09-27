@@ -154,6 +154,7 @@ docker-compose up -d kafka redis zookeeper
 # 2. Set Spotify OAuth credentials
 export SPOTIFY_CLIENT_ID=xxxx
 export SPOTIFY_CLIENT_SECRET=xxxx
+export INTERNAL_SERVICE_TOKEN="wrap-local-service-token"
 
 # 3. Build all services
 ./mvnw clean package -DskipTests
@@ -167,17 +168,6 @@ java -jar analysis-service/target/analysis-service-1.0.0.jar
 ```
 
 Then visit `http://localhost:8080` and click **Get My Wrapped**.
-
----
-
-## Testing
-
-```bash
-./mvnw test
-```
-
-- Unit tests cover every analyzer algorithm (rank weighting, HHI, Shannon entropy, growth scoring, personality classification across all 7 categories) independently of Spring context.
-- Integration tests (Testcontainers) cover Kafka producer→consumer flow, the Spotify-snapshot→Analysis handoff, and Redis cache hit/miss behavior.
 
 ---
 
