@@ -145,7 +145,7 @@ Every event carries a `generationId` that correlates the full pipeline and is us
 
 ---
 
-## Running Locally
+## Running Locally 
 
 ```bash
 # 1. Start infrastructure
