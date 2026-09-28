@@ -140,7 +140,7 @@ Every event carries a `generationId` that correlates the full pipeline and is us
 | Cache | Redis (Spring Data Redis) |
 | External API | Spotify Web API / OAuth 2.0 |
 | Frontend | Thymeleaf, HTML, CSS, vanilla JavaScript |
-| Infra | Docker, Docker Compose |
+| Infra | Docker, Docker-Compose |
 | Testing | JUnit 5, Mockito, Spring Boot Test, Testcontainers |
 
 ---
