@@ -174,4 +174,3 @@ Then visit `http://localhost:8080` and click **Get My Wrapped**.
 ## Project Status
 
 All phases through the full end-to-end pipeline (OAuth → Kafka pipeline → analysis → Redis cache → frontend) are implemented and verified against a real Spotify account, including retry/timeout handling for OAuth token exchange and Spotify API calls.
-(more to come)
