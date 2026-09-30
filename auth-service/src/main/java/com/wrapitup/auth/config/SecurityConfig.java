@@ -97,16 +97,15 @@ public class SecurityConfig {
                                                 .build();
 
                                         tokenStore.saveToken(spotifyAccountId, tokenInfo);
-                                        log.info("✓ OAuth successful - Captured and stored token for account: {}", spotifyAccountId);
+                                        log.info("OAuth successful - Captured and stored token for account: {}", spotifyAccountId);
                                     }
                                 }
                             } catch (Exception e) {
                                 log.error("Failed to capture token after OAuth", e);
                             }
 
-                            // /auth/me is a JSON diagnostic endpoint. Sending the
-                            // browser there leaves the user stuck on auth JSON and
-                            // never starts wrap generation.
+                            // /auth/me is a JSON diagnostic endpoint. Sending the browser there leaves the user stuck on auth JSON
+                            //  plus that never starts wrap generation.
                             response.sendRedirect("/start");
                         })
                 )
@@ -115,7 +114,6 @@ public class SecurityConfig {
                         .logoutSuccessUrl("/")
                         .invalidateHttpSession(true)
                 );
-
         return http.build();
     }
 

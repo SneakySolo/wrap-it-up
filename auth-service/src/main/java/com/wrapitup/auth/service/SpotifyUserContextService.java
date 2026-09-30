@@ -35,7 +35,7 @@ public class SpotifyUserContextService {
                 .uri("https://api.spotify.com/v1/me")
                 .header("Authorization", "Bearer " + accessToken)
                 .retrieve()
-                .bodyToMono(SpotifyUserProfile.class)
+                .bodyToMono(SpotifyUserProfile.class) // Deserialize JSON → SpotifyUserProfile
                 .doOnSuccess(profile -> log.info("Fetched Spotify user: {} (ID: {})", profile.getDisplayName(), profile.getId()))
                 .doOnError(ex -> log.error("Failed to fetch Spotify user profile", ex));
     }
@@ -58,7 +58,7 @@ public class SpotifyUserContextService {
         }
 
         // Fetch user profile synchronously (blocking) for simplicity
-        // In production, you might want to make this async or cache results
+        // In production, this will be async or cache results
         SpotifyUserProfile profile = fetchUserProfile(accessToken.getTokenValue())
                 .block(); // Block for sync response
 

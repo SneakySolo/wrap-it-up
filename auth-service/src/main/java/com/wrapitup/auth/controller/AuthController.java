@@ -32,6 +32,15 @@ public class AuthController {
 
     private final SpotifyUserContextService spotifyUserContextService;
 
+    /**
+     * frontend calls this after successful OAuth Login
+     * request comes in with OAuth2 cookie
+     * then Spring Security intercepts that
+     * then it extracts OAuth2AuthorizedClient from cookie/session
+     * then it calls AuthController.getUserInfo()
+     * then it extracts Spotify account ID via SpotifyUserContextService
+     * returns a JSON
+     */
     @GetMapping("/me")
     public UserInfoResponse getUserInfo(
             @RegisteredOAuth2AuthorizedClient("spotify") OAuth2AuthorizedClient authorizedClient) {

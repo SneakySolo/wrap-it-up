@@ -14,38 +14,19 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SpotifyUserProfile {
 
-    /**
-     * Spotify user ID (unique identifier).
-     * This is the stable identifier we should use to track the user.
-     */
-    private String id;
+    private String id; // Spotify user ID (unique identifier)
 
-    /**
-     * User's display name (can be null).
-     */
     @JsonProperty("display_name")
-    private String displayName;
+    private String displayName; // User's display name (can be null)
 
-    /**
-     * User's email address (requires scope).
-     */
-    private String email;
+    private String email; // User's email address (requires scope)
 
-    /**
-     * User's external URLs.
-     */
     @JsonProperty("external_urls")
-    private ExternalUrls externalUrls;
+    private ExternalUrls externalUrls; // User's external URLs
 
-    /**
-     * User's country (if available).
-     */
-    private String country;
+    private String country; // User's country
 
-    /**
-     * User's subscription product (free, premium).
-     */
-    private String product;
+    private String product; // User's subscription product (free or premium)
 
     @Data
     @NoArgsConstructor
