@@ -3,6 +3,11 @@ package com.wrapitup.auth.service;
 import org.springframework.stereotype.Service;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * This is a Thread-Safe Token Cache
+ * we use a ConcurrentHashMap because it's safe for concurrent read/write from multiple threads
+ */
+
 @Service
 public class TokenStore {
     private final ConcurrentHashMap<String, TokenInfo> store = new ConcurrentHashMap<>();
