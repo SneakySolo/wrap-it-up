@@ -41,6 +41,7 @@ public class AuthController {
      * then it extracts Spotify account ID via SpotifyUserContextService
      * returns a JSON
      */
+    // we use this to confirms the user is logged in and gets their Spotify ID.
     @GetMapping("/me")
     public UserInfoResponse getUserInfo(
             @RegisteredOAuth2AuthorizedClient("spotify") OAuth2AuthorizedClient authorizedClient) {
@@ -60,6 +61,23 @@ public class AuthController {
                 .build();
     }
 
+    /**
+     * Other microservices (spotify-service, analysis-service, etc.) calls this
+     * and each call requires internal service token in header
+     * Also the X-Internal-Service-Token header acts as a password. Only services with this secret can fetch tokens.
+     */
+
+    /**
+     * say spotify-service calls: GET http://auth-service:8081/auth/internal/tokens/user123456
+     * along with Header: X-Internal-Service-Token: {INTERNAL_SERVICE_TOKEN}
+     *
+     * then this checks if provided token matches configured internal token
+     * if invalid → 401 Unauthorized (rejected)
+     * if valid, looks up token in TokenStore.getToken(spotifyAccountId)
+     * if not found → 404 Not Found
+     * if found but expired → 401 Unauthorized
+     * if found and valid → 200 OK with a JSON
+     */
     @GetMapping("/internal/tokens/{spotifyAccountId}")
     public ResponseEntity<TokenResponse> getTokenForAccount(
             @PathVariable("spotifyAccountId") String spotifyAccountId,

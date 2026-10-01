@@ -21,9 +21,6 @@ import reactor.core.publisher.Mono;
  * 1. Fetches Spotify data for the user (requires access token from auth context)
  * 2. Normalizes it
  * 3. Publishes spotify.snapshot.created event
- *
- * NOTE: Phase 4 is simplified - we don't have auth context yet.
- * In Phase 5+, will need to retrieve the access token for spotifyAccountId.
  */
 @Slf4j
 @Service
