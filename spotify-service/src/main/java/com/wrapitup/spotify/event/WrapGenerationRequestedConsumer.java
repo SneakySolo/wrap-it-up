@@ -64,7 +64,7 @@ public class WrapGenerationRequestedConsumer {
             log.info("Received wrap.generation.requested event: generation={} account={}",
                     generationId, spotifyAccountId);
 
-            // REAL: Fetch access token from auth-service
+            // Fetch access token from auth-service
             String accessToken = fetchAccessToken(spotifyAccountId);
             if (accessToken == null) {
                 log.error("Failed to fetch access token for account: {}", spotifyAccountId);
