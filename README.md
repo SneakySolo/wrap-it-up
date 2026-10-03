@@ -167,7 +167,7 @@ java -jar wrap-service/target/wrap-service-1.0.0.jar
 java -jar analysis-service/target/analysis-service-1.0.0.jar
 ```
 
-Then visit `http://localhost:8080` and click **Get My Wrapped** Button.
+Then visit `http://127.0.0.1:8080/` and click **Get My Wrapped** Button.
 
 ---
 
