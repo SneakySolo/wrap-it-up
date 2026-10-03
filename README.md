@@ -1,4 +1,4 @@
-# Wrap-it-up 🎧
+# Wrap-it-up
 
 **Spotify Wrapped, whenever you want.**
 
