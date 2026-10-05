@@ -1,6 +1,6 @@
 # Wrap-it-up
 
-**Spotify Wrapped, whenever you want.** 
+**Spotify Wrapped, whenever you want.**
 
 Wrap-it-up is an on-demand version of Spotify Wrapped — authenticate with Spotify and get a personalized breakdown of your current listening habits, generated asynchronously by an event-driven microservices backend.
 
