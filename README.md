@@ -9,7 +9,7 @@ This is a backend-heavy systems project. The frontend is intentionally lightweig
 > "Hello there. Your Wrapped is ready... but are you?"
 
 ---
-
+ 
 ## What It Generates
 
 | Section | What it shows |
