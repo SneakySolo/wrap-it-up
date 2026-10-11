@@ -20,14 +20,6 @@ import java.util.UUID;
 
 /**
  * REST endpoints for Wrap generation lifecycle.
- *
- * Phase 4 implements:
- * - POST /wraps → initiates async generation, returns generationId
- *
- * Phase 6 implements:
- * - GET /wraps/{generationId}/status → poll generation progress
- * - GET /wraps/{generationId} → retrieve completed wrap (or error)
- *
  * Endpoints support:
  * - Full async workflow without blocking
  * - Status polling with progress tracking
