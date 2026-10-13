@@ -1,7 +1,7 @@
 # Wrap-it-up
 
 **Spotify Wrapped, whenever you want.**
-
+ 
 Wrap-it-up is an on-demand version of Spotify Wrapped — authenticate with Spotify and get a personalized breakdown of your current listening habits, generated asynchronously by an event-driven microservices backend.
 
 This is a backend-heavy systems project. The frontend is intentionally lightweight (Thymeleaf); the engineering focus is OAuth2, Kafka-driven pipelines, deterministic analytics, and clean service boundaries.
