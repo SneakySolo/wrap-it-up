@@ -44,8 +44,6 @@ public class SecurityConfig {
     private TokenStore tokenStore;
 
     /**
-     * Configure security filter chain for OAuth2 login and CORS.
-     *
      * Flow:
      * 1. Unauthenticated user accesses /auth/me
      * 2. Spring Security redirects to Spotify
@@ -68,13 +66,14 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .redirectionEndpoint(redirection -> redirection
-                                .baseUri("/auth/spotify/callback"))
+                                .baseUri("/auth/spotify/callback")) // this is where Spotify redirects after authorization
                         .tokenEndpoint(token -> token
-                                .accessTokenResponseClient(accessTokenResponseClient()))
+                                .accessTokenResponseClient(accessTokenResponseClient())) // exchange authorization code for an access token
                         .userInfoEndpoint(userInfo -> userInfo
-                                .userService(oAuth2UserService()))
+                                .userService(oAuth2UserService())) // fetch user profile details
                         .successHandler((request, response, authentication) -> {
                             try {
+                                // Get the spotify login details
                                 OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
                                 String clientName = oauthToken.getAuthorizedClientRegistrationId();
 
@@ -96,6 +95,7 @@ public class SecurityConfig {
                                                 .expiresAt(client.getAccessToken().getExpiresAt())
                                                 .build();
 
+                                        // save these details against the Spotify account ID
                                         tokenStore.saveToken(spotifyAccountId, tokenInfo);
                                         log.info("OAuth successful - Captured and stored token for account: {}", spotifyAccountId);
                                     }
@@ -130,9 +130,12 @@ public class SecurityConfig {
      */
     @Bean
     public OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> accessTokenResponseClient() {
+
+        // We need to control how long the HTTP request waits when contacting Spotify,
+        // so we create the request factory that manages the HTTP connection
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(8_000);
-        requestFactory.setReadTimeout(8_000);
+        requestFactory.setConnectTimeout(8_000); // Wait at most 8 seconds to establish a connection with Spotify
+        requestFactory.setReadTimeout(8_000); // Wait at most 8 seconds for data to arrive after the connection is established.
 
         RestTemplate restTemplate = new RestTemplate(Arrays.asList(
                 new FormHttpMessageConverter(),
@@ -140,15 +143,15 @@ public class SecurityConfig {
         restTemplate.setRequestFactory(requestFactory);
         restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
 
+        // this below performs the OAuth authorization-code token exchange (authorization code for access and refresh tokens)
         DefaultAuthorizationCodeTokenResponseClient client = new DefaultAuthorizationCodeTokenResponseClient();
         client.setRestOperations(restTemplate);
         return client;
     }
 
     /**
-     * UserInfo client (GET https://api.spotify.com/v1/me) with the same
-     * timeout bound as the token client, wrapped with a few quick retries.
-     * See {@link RetryingOAuth2UserService} for why the retry is needed.
+     * The purpose of this code is to fetch the user's Spotify profile
+     * with timeouts and retries
      */
     @Bean
     public OAuth2UserService<OAuth2UserRequest, OAuth2User> oAuth2UserService() {
@@ -156,6 +159,8 @@ public class SecurityConfig {
         requestFactory.setConnectTimeout(8_000);
         requestFactory.setReadTimeout(8_000);
 
+        // RestTemplate is our HHTP client,
+        // Spring needs an HTTP client to call Spotify's profile API
         RestTemplate restTemplate = new RestTemplate();
         restTemplate.setRequestFactory(requestFactory);
         restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
@@ -163,6 +168,8 @@ public class SecurityConfig {
         DefaultOAuth2UserService delegate = new DefaultOAuth2UserService();
         delegate.setRestOperations(restTemplate);
 
+        // failure could prevent login even when Spotify is working well
+        // hence retry failed profile requests
         return new RetryingOAuth2UserService(delegate);
     }
 
